@@ -12,49 +12,38 @@ namespace Graph
 
     public class Graph<T> : IGraph<T>
     {
-        readonly Dictionary<T, List<T>> _dict;
+        readonly Dictionary<T, IEnumerable<T>> _dict;
 
         public Graph(IEnumerable<ILink<T>> links)
         {
-            _dict = new Dictionary<T, List<T>>();
-            foreach (var link in links)
-            {
-                var source = link.Source;
-                if (!_dict.ContainsKey(source))
-                {
-                    _dict[source] = new List<T>();    ////////// FAZER ISSO TUDO USANDO GROUPBY (VER COMO FICA)
-                    
-                }
-                _dict[source].Add(link.Target);
-            }
+            _dict = links.GroupBy(l => l.Source)
+                         .ToDictionary(g => g.Key, 
+                                       g => g.Select(l => l.Target));
         }
 
         public IObservable<IEnumerable<T>> RoutesBetween(T source, T target)
         {
-            var result = new List<List<T>>();
-            var queue = new Queue<List<T>>();
+            var routes = new List<IEnumerable<T>>();
+            var queue = new Queue<IEnumerable<T>>();
             queue.Enqueue(new List<T> { source });
             while (queue.Any())
             {
-                var currentList = queue.Dequeue();
-                var currentLastNode = currentList.Last();
+                var currentRoute = queue.Dequeue();
+                var currentLastNode = currentRoute.Last();
                 if (_dict.TryGetValue(currentLastNode, out var targets))
                 {
-                    foreach (var newTarget in targets)
+                    foreach (var newTarget in targets.Where(t => !currentRoute.Contains(t)))
                     {
-                        if (!currentList.Contains(newTarget))
-                        {
-                            var nextList = new List<T>(currentList) { newTarget };
+                        var nextList = new List<T>(currentRoute) { newTarget };
 
-                            if (EqualityComparer<T>.Default.Equals(newTarget, target))
-                                result.Add(nextList);
-                            else
-                                queue.Enqueue(nextList);
-                        }
+                        if (EqualityComparer<T>.Default.Equals(newTarget, target))
+                            routes.Add(nextList.AsReadOnly());
+                        else
+                            queue.Enqueue(nextList);
                     }
                 }
             }
-            return result.ToObservable();
+            return routes.ToObservable();
         }
     }
 }
