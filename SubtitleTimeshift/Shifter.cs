@@ -34,9 +34,7 @@ namespace SubtitleTimeshift
 
         static string shiftStamp(string stampText, TimeSpan timeSpan)
         {
-            var nums = stampText.Replace(',', '.')
-                                .Replace('.', ':')
-                                .Split(new[] { ':' })
+            var nums = stampText.Split(new[] { ':', ',', '.' })
                                 .Select(s => int.Parse(s))
                                 .ToArray();
 
